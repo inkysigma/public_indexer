@@ -35,7 +35,8 @@ class PostingType(type):
                 return Posting.REVERSE_MAP[index][0]
 
             @staticmethod
-            def parse(segments: [str or [str]]):
+            def parse(segment: str):
+                segments = segment.split('\v')
                 return Posting(segments[0],
                                list(
                                    map(
@@ -70,3 +71,11 @@ class PostingType(type):
                 return self.get_property(item)
 
         return Posting
+
+
+class PostingInformation:
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        pass

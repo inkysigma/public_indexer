@@ -2,6 +2,7 @@ from itertools import zip_longest
 
 from posting import PostingType
 from typing import Optional
+from collections import defaultdict
 
 
 class PostingWriter:
@@ -27,6 +28,8 @@ class PostingWriter:
     def close(self):
         for key in sorted(self.keys):
             self.index.write(f"{key}\t{self.keys[key]}\n")
+        self.keys.clear()
+        self.index.close()
         self.open.close()
 
 
@@ -42,14 +45,17 @@ class PostingReader:
 
     def __read__(self):
         line = self.open.readline()
+        if not line:
+            self.sequence = None
+            self.current_key = None
         line.rstrip()
         self.sequence = line.split('\f')
         self.current_key = self.sequence[0]
 
     def read_posting(self) -> Optional[PostingType]:
-        if self.index == self.sequence:
+        if self.sequence is None or self.index == self.sequence:
             return None
-        return self.posting_type.parse(self.sequence[0])
+        return self.posting_type.parse(self.sequence[self.index])
 
     def __iter__(self):
         pass
