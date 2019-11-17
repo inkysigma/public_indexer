@@ -1,0 +1,74 @@
+from typing import List, Dict, Tuple, Any, Type
+
+
+class Posting:
+    SORTED_PROPERTIES: Dict[str, Tuple[type, int]] = None
+    REVERSE_MAP: List[Tuple[str, type]] = None
+
+    def __init__(self, doc_id: str, properties: Dict[str, int or float] or [float or int] = None):
+        self.doc_id = doc_id
+        if type(properties) is dict:
+            temp_properties = [None] * len(type(self).SORTED_PROPERTIES)
+            for element in properties:
+                temp_properties[self.get_index(element)] = properties[element]
+            properties = temp_properties
+
+        self.properties = properties if properties else [None] * len(type(self).SORTED_PROPERTIES)
+
+    def get_index(self, key: str) -> int:
+        return type(self).SORTED_PROPERTIES[key][1]
+
+    def get_type(self, key: str) -> type:
+        return type(self).SORTED_PROPERTIES[key][0]
+
+    def get_key(self, index: int) -> str:
+        return type(self).REVERSE_MAP[index][0]
+
+    @classmethod
+    def parse(cls, segment: str):
+        segments = segment.split('\v')
+        return cls(segments[0],
+                   [cls.REVERSE_MAP[idx][1](token) for idx, token in enumerate(segments[1].split("\t"))])
+
+    def __str__(self):
+        property_string = '\t'.join([str(prop) for prop in self.properties])
+        return f"{self.doc_id}\v{property_string}"
+
+    def __eq__(self, other: "Posting"):
+        if type(other) is not Posting:
+            return False
+        return self.doc_id == other.doc_id
+
+    def __lt__(self, other: "Posting"):
+        if type(other) is not Posting:
+            return False
+        return self.doc_id < other.doc_id
+
+    def set_property(self, key: str, value: Any):
+        self.properties[self.get_index(key)] = value
+
+    def __setitem__(self, key: str, value: Any):
+        self.set_property(key, value)
+
+    def get_property(self, key: str):
+        return self.properties[self.get_index(key)]
+
+    def __getitem__(self, item: str):
+        return self.get_property(item)
+
+
+class PostingInformation:
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        pass
+
+
+# noinspection PyTypeChecker
+def create_posting_type(name: str, map_properties: Dict[str, type]) -> Type[Posting]:
+    posting: Type[Posting] = type(name, (Posting,), {})
+    sorted_list = list(sorted(map_properties))
+    posting.SORTED_PROPERTIES = {key: (map_properties[key], idx) for idx, key in enumerate(sorted_list)}
+    posting.REVERSE_MAP = [(x, map_properties[x]) for x in sorted_list]
+    return posting
