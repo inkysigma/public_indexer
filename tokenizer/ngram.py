@@ -51,7 +51,6 @@ class WordTokenizer(Tokenizer):
     def tokenize(self, file_name: str) -> Optional[TokenizeResult]:
         with open(file_name) as file:
             obj = json.load(file)
-            print(obj["encoding"])
             if obj["encoding"].lower() not in PERMITTED_ENCODINGS:
                 return None
             document = BeautifulSoup(obj["content"], 'lxml', from_encoding=obj["encoding"])
