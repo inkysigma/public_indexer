@@ -1,3 +1,7 @@
 .idea/**
 __pycache__/**
 venv/**
+.vscode/**
+*.dat
+*.bak
+*.dir
