@@ -139,8 +139,19 @@ class PostingReader:
 
 
 def merge(merged: PostingWriter, *files: [PostingReader]):
-    pass
-
+    keys = [(file.current_row(), file) for file in files if not file.eof()]
+    keys.sort()
+    while keys:
+        minimum_keys = [keys[0]]
+        for _, key in enumerate(keys, 1):
+            if key[0] == minimum_keys[0][0]:
+                minimum_keys.append(key)
+        merged.write_key(minimum_keys[0][0])
+        for posting in merge_postings(*[file.get_iterator() for _, file in minimum_keys]):
+            merged.write_posting(posting)
+        for _, file in minimum_keys:
+            file.read_key()
+        keys = [(file.current_row(), file) for file in files if not file.eof()]
 
 def merge_postings(*postings):
     for elements in zip_longest(*postings):
