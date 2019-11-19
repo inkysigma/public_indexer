@@ -112,12 +112,20 @@ def flush():
     WORD_FREQUENCIES.clear()
     WORDS_TO_DOCUMENTS.clear()
 
+def file_path(hash_link):
+   
+     for sub_direc in os.listdir(ROOT_DIR):
+        for x in os.listdir(sub_direc):
+            if(x== hash_link+".json"):
+                return ROOT_DIR+sub_direc
+    
+
 
 def main():
     print("Starting the process")
     global FLUSH
     global RESET_COUNT
-
+ 
     for file in glob.glob(ROOT_DIR + "/**/*.json"):
         if not RUNNING:
             return
