@@ -25,5 +25,6 @@ class PostingDictionary:
             writer.write(*self.dictionary[key])
         writer.flush()
         writer.close()
+        self.dictionary.clear()
         self.counter += 1
         self.total_count = 0

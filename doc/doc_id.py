@@ -17,9 +17,11 @@ class DocumentIdDictionary:
         :param file: the file to associate with the generated id
         :return: an integer representing the id number that can be used
         """
+        if file in self.doc_id:
+            return self.doc_id[file]
         counter = self.counter
         self.counter += 1
-        self.doc_id[str] = counter
+        self.doc_id[file] = counter
         self.reverse_map[counter] = file
         return str(counter)
 

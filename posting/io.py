@@ -1,8 +1,11 @@
 from itertools import zip_longest
 
-from typing import Optional, Type
+from typing import Optional, Type, IO
 from .post import Posting
 from collections import defaultdict
+from threading import RLock
+
+TOKENS = {'\n', '\t', '\v', '\f'}
 
 
 class PostingWriter:
@@ -51,29 +54,79 @@ class PostingWriter:
         self.open.close()
 
 
+class PostingIterator:
+    def __init__(self, lock: RLock, file: IO, posting: Type[Posting], init_buffer=None):
+        self.lock = lock
+        self.file = file
+        self.posting = posting
+        self.buffer = "" if not init_buffer else init_buffer
+        self.end = False
+
+    def __enter__(self):
+        self.lock.acquire()
+        return self
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> Posting:
+        buffer = self.buffer
+        while "\f" not in buffer and not self.end:
+            buffer = self.file.readline(128000)
+            if buffer.endswith('\n') or not buffer:
+                self.end = True
+            self.buffer += buffer
+        if not self.buffer.rstrip():
+            raise StopIteration
+        try:
+            index = self.buffer.index('\f')
+            posting = self.buffer[:index].rstrip()
+            self.buffer = self.buffer[index + 1:]
+        except ValueError:
+            posting = self.buffer.rstrip()
+            self.buffer = ""
+        return self.posting.parse(posting)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.lock.release()
+
+
 class PostingReader:
     def __init__(self, file_name: str, posting: Type[Posting]):
         self.open = open(f"{file_name}.index", 'r')
         self.index = open(f"{file_name}.index.position", 'r')
+        keys = dict()
+        for row in self.index:
+            s = row.split('\t')
+            keys[s[0]] = int(s[1])
+
+        self.keys = keys
         self.posting_type = posting
         self.current_key = None
-        self.sequence = None
         self.index = 0
+        self.read_lock = RLock()
         self.__read__()
 
+        self.posting_iterator = None
+        self.buffer = ""
+
     def __read__(self):
-        line = self.open.readline()
-        if not line:
-            self.sequence = None
-            self.current_key = None
-        line.rstrip()
-        self.sequence = line.split('\f')
-        self.current_key = self.sequence[0]
+        buffer = self.open.readline(4096)
+        while '\f' not in buffer:
+            self.buffer += buffer
+            buffer = self.open.readline(4096)
+        index = buffer.index('\f')
+        self.posting_iterator = PostingIterator(self.read_lock, self.open, self.posting_type, buffer[index + 1:])
+        self.current_key = buffer[:index]
 
     def read_posting(self) -> Optional[Posting]:
-        if self.sequence is None or self.index == self.sequence:
+        try:
+            return self.posting_iterator.__next__()
+        except StopIteration:
             return None
-        return self.posting_type.parse(self.sequence[self.index])
+
+    def get_iterator(self):
+        return self.posting_iterator
 
     def read_key(self):
         self.__read__()

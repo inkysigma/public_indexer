@@ -5,8 +5,8 @@ class Posting:
     SORTED_PROPERTIES: Dict[str, Tuple[type, int]] = None
     REVERSE_MAP: List[Tuple[str, type]] = None
 
-    def __init__(self, doc_id: str, properties: Dict[str, int or float] or [float or int] = None):
-        self.doc_id = doc_id
+    def __init__(self, doc_id: int, properties: Dict[str, int or float] or [float or int] = None):
+        self.doc_id = int(doc_id)
         if type(properties) is dict:
             temp_properties = [None] * len(type(self).SORTED_PROPERTIES)
             for element in properties:
@@ -35,12 +35,12 @@ class Posting:
         return f"{self.doc_id}\v{property_string}"
 
     def __eq__(self, other: "Posting"):
-        if type(other) is not Posting:
+        if type(other) is not type(self):
             return False
         return self.doc_id == other.doc_id
 
     def __lt__(self, other: "Posting"):
-        if type(other) is not Posting:
+        if type(other) is not type(self):
             return False
         return self.doc_id < other.doc_id
 
