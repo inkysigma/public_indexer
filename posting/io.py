@@ -72,7 +72,7 @@ class PostingIterator:
     def __next__(self) -> Posting:
         buffer = self.buffer
         while "\f" not in buffer and not self.end:
-            buffer = self.file.readline(128000)
+            buffer = self.file.readline(64000)
             if buffer.endswith('\n') or not buffer:
                 self.end = True
             self.buffer += buffer
