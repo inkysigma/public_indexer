@@ -35,9 +35,10 @@ class DocumentIdDictionary:
         with open(f'{self.name}/doc_id.reference', 'w+') as file:
             with open(f'{self.name}/reverse_map.reference', 'w+') as reverse_file:
                 for key in self.doc_id:
-                    property_string = '\t' + '\t'.join(self.properties[key]) if key in self.properties else ""
-                    file.write(f'{key}\t{self.doc_id[key]}{property_string}')
-                    reverse_file.write(f'{self.doc_id[key]}\t{key}{property_string}')
+                    property_string = '\t' + '\t'.join(
+                        [f'{k}\f{v}' for k, v in self.properties[key]]) if key in self.properties else ""
+                    file.write(f'{key}\t{self.doc_id[key]}{property_string}\n')
+                    reverse_file.write(f'{self.doc_id[key]}\t{key}{property_string}\n')
 
     def close(self):
         self.flush()

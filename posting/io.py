@@ -60,7 +60,7 @@ class PostingIterator:
         self.file = file
         self.posting = posting
         self.buffer = "" if not init_buffer else init_buffer
-        self.end = False
+        self.end = False if not init_buffer else init_buffer.endswith('\n')
 
     def __enter__(self):
         self.lock.acquire()
@@ -77,6 +77,7 @@ class PostingIterator:
                 self.end = True
             self.buffer += buffer
         if not self.buffer.rstrip():
+            self.end = True
             raise StopIteration
         try:
             index = self.buffer.index('\f')
@@ -99,25 +100,32 @@ class PostingReader:
         for row in self.index:
             s = row.split('\t')
             keys[s[0]] = int(s[1])
+        self.index.close()
 
         self.keys = keys
+
         self.posting_type = posting
         self.current_key = None
-        self.index = 0
         self.read_lock = RLock()
+        self.buffer = ""
+        self.__eof = False
+        self.posting_iterator = None
+
         self.__read__()
 
-        self.posting_iterator = None
-        self.buffer = ""
-
     def __read__(self):
+        self.buffer = ""
         buffer = self.open.readline(4096)
-        while '\f' not in buffer:
+        while '\f' not in buffer and buffer:
             self.buffer += buffer
             buffer = self.open.readline(4096)
-        index = buffer.index('\f')
-        self.posting_iterator = PostingIterator(self.read_lock, self.open, self.posting_type, buffer[index + 1:])
-        self.current_key = buffer[:index]
+        try:
+            index = buffer.index('\f')
+            self.posting_iterator = PostingIterator(self.read_lock, self.open, self.posting_type, buffer[index + 1:])
+            self.current_key = buffer[:index]
+        except ValueError:
+            self.posting_iterator = None
+            self.__eof = True
 
     def read_posting(self) -> Optional[Posting]:
         try:
@@ -136,6 +144,9 @@ class PostingReader:
 
     def current_row(self) -> str:
         return self.current_key
+
+    def eof(self):
+        return self.__eof
 
 
 def merge(merged: PostingWriter, *files: [PostingReader]):
