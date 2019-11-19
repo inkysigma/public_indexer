@@ -2,7 +2,6 @@ from itertools import zip_longest
 
 from typing import Optional, Type, IO
 from .post import Posting
-from collections import defaultdict
 from threading import RLock
 
 TOKENS = {'\n', '\t', '\v', '\f'}
@@ -72,7 +71,7 @@ class PostingIterator:
     def __next__(self) -> Posting:
         buffer = self.buffer
         while "\f" not in buffer and not self.end:
-            buffer = self.file.readline(64000)
+            buffer = self.file.readline(8000)
             if buffer.endswith('\n') or not buffer:
                 self.end = True
             self.buffer += buffer
@@ -81,10 +80,10 @@ class PostingIterator:
             raise StopIteration
         try:
             index = self.buffer.index('\f')
-            posting = self.buffer[:index].rstrip()
+            posting = self.buffer[:index].rstrip('\n')
             self.buffer = self.buffer[index + 1:]
         except ValueError:
-            posting = self.buffer.rstrip()
+            posting = self.buffer.rstrip('\n')
             self.buffer = ""
         return self.posting.parse(posting)
 
@@ -115,14 +114,22 @@ class PostingReader:
 
     def __read__(self):
         self.buffer = ""
-        buffer = self.open.readline(4096)
-        while '\f' not in buffer and buffer:
-            self.buffer += buffer
-            buffer = self.open.readline(4096)
         try:
-            index = buffer.index('\f')
-            self.posting_iterator = PostingIterator(self.read_lock, self.open, self.posting_type, buffer[index + 1:])
-            self.current_key = buffer[:index]
+            buffer = self.open.readline(4096)
+            if '\f' in buffer:
+                self.buffer += buffer
+            else:           
+                while '\f' not in buffer and buffer:
+                    buffer = self.open.readline(4096)
+                    self.buffer += buffer
+        except EOFError:
+            self.posting_iterator = None
+            self.__eof = True
+            return
+        try:
+            index = self.buffer.index('\f')
+            self.posting_iterator = PostingIterator(self.read_lock, self.open, self.posting_type, self.buffer[index + 1:])
+            self.current_key = self.buffer[:index]
         except ValueError:
             self.posting_iterator = None
             self.__eof = True
@@ -138,9 +145,19 @@ class PostingReader:
 
     def read_key(self):
         self.__read__()
+        if not self.current_key:
+            raise EOFError
+        return self.current_key
 
-    def seek(self, position: int):
-        self.open.seek(position)
+    def seek(self, position: int or str):
+        if type(position) is int:
+            self.open.seek(position)
+            self.__eof = False
+            self.__read__()
+        else:
+            self.open.seek(self.keys[position])
+            self.__eof = False
+            self.__read__()
 
     def current_row(self) -> str:
         return self.current_key
@@ -151,25 +168,39 @@ class PostingReader:
 
 def merge(merged: PostingWriter, *files: [PostingReader]):
     keys = [(file.current_row(), file) for file in files if not file.eof()]
-    keys.sort()
     while keys:
-        minimum_keys = [keys[0]]
-        for _, key in enumerate(keys, 1):
-            if key[0] == minimum_keys[0][0]:
-                minimum_keys.append(key)
-        merged.write_key(minimum_keys[0][0])
-        for posting in merge_postings(*[file.get_iterator() for _, file in minimum_keys]):
+        minimum = min(keys, key=lambda x: x[0])[0]
+        minimum_keys = []
+        for key, reader in keys:
+            if key == minimum:
+                minimum_keys.append(reader)
+        merged.write_key(minimum)
+        if reader.current_row() == '':
+            print(minimum_keys)
+            input("ERROR")
+        for posting in merge_postings(*[file.get_iterator() for file in minimum_keys]):
             merged.write_posting(posting)
-        for _, file in minimum_keys:
+        for file in minimum_keys:
             file.read_key()
         keys = [(file.current_row(), file) for file in files if not file.eof()]
 
-def merge_postings(*postings):
-    for elements in zip_longest(*postings):
-        postings = []
-        for posting in elements:
-            if posting:
-                postings.append(posting)
-        postings.sort()
-        for posting in postings:
-            yield posting
+
+def merge_postings(*postings) -> Posting:
+    iterations = postings
+    current_heads = [next(it) for it in iterations]
+    running = True
+    while running:
+        running = False
+        try:
+            minimum = min(x for x in current_heads if x)
+        except ValueError:
+            return
+        for i, head in enumerate(current_heads):
+            if head and head == minimum:
+                yield head
+                try:
+                    current_heads[i] = next(iterations[i])
+                except StopIteration:
+                    current_heads[i] = None
+                running = True
+

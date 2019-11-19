@@ -20,7 +20,7 @@ class PostingDictionary:
 
     def flush(self):
         writer = PostingWriter(f"{self.name}/{self.counter}")
-        for key in self.dictionary:
+        for key in sorted(self.dictionary):
             writer.write_key(key)
             writer.write(*self.dictionary[key])
         writer.flush()

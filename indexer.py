@@ -161,10 +161,6 @@ def main():
             for secondary in map(process_token, secondary_tokenizer(tag)):
                 SECONDARY_WORD_TOKENIZER[secondary][get_hash(file)] += 1
 
-        if get_hash(file) in HASH_TO_URL:
-            print("SEVERE ERROR with " + obj[url] + " " + file)
-            raise KeyboardInterrupt
-
         URLS[urldefrag(obj['url'])] = True
 
         WORD_FREQUENCIES[get_hash(file)] = words
