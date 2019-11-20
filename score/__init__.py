@@ -1,17 +1,12 @@
 from .tf_idf import *
 from posting.io import PostingReader
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 
-def score_word(scheme: Callable[[DocumentIdDictionary, PostingIterator], List[float]], word: str,
-               dictionary: DocumentIdDictionary, reader: PostingReader) -> List[float]:
+def score_word(scheme: Callable[[DocumentIdDictionary, PostingIterator], List[Tuple[int, float]]], word: str,
+               dictionary: DocumentIdDictionary, reader: PostingReader) -> List[Tuple[int, float]]:
     reader.seek(word)
     return scheme(dictionary, reader.get_iterator())
-
-
-def score_query(scheme: Callable[[DocumentIdDictionary, PostingIterator], List[float]], word: str,
-                dictionary: DocumentIdDictionary, reader: PostingReader) -> List[float]:
-    pass
 
 
 def get_normalized_vector(v: List[float]):

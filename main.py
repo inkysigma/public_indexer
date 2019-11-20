@@ -41,4 +41,4 @@ def processor(name: str, tokenizer: Tokenizer):
 
 
 if __name__ == "__main__":
-    processor("default", WordTokenizer())
+    processor("secondary", WordTokenizer())

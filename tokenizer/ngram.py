@@ -9,7 +9,7 @@ import re
 from nltk.stem import PorterStemmer
 import json
 
-RE_MATCH = re.compile(r"[0-9a-zA-Z_\-/\\]+")
+RE_MATCH = re.compile(r"\w+", re.ASCII)
 STEMMER = PorterStemmer()
 
 PERMITTED_ENCODINGS = {
