@@ -1,8 +1,8 @@
 from heapq import nlargest
 from posting.io import PostingReader
-from tokenizer.ngram import WordTokenizer
+from posting.tokenizer.ngram import WordTokenizer
 from doc import from_document_dictionary
-from score import tf_idf, tf_idf_query, score_word, score_cosine
+from posting.score import tf_idf, tf_idf_query, score_word, score_cosine
 import re
 from collections import defaultdict
 from nltk import PorterStemmer
@@ -12,12 +12,12 @@ STEMMER = PorterStemmer()
 SEQUENCE = re.compile(r"\w+", re.ASCII)
 
 if __name__ == "__main__":
-    query = input("What documents would you like to lookup?")
-    sequence = SEQUENCE.findall(query)
     Posting = WordTokenizer().get_posting_type()
-    reader = PostingReader("finalized/default", Posting)
-    dictionary = from_document_dictionary("default")
+    reader = PostingReader("finalized/secondary", Posting)
 
+    query = input("What documents would you like to lookup? ")
+    sequence = SEQUENCE.findall(query.lower())
+    dictionary = from_document_dictionary("secondary")
     query_vec = tf_idf_query([STEMMER.stem(word) for word in sequence], dictionary, reader)
     word_scores = defaultdict(lambda: defaultdict(float))
     for word in sequence:
@@ -26,10 +26,16 @@ if __name__ == "__main__":
     word_vectors = []
     for doc in word_scores:
         vec = []
+        ignore = False
         for word in sequence:
-            vec.append(word_scores[doc][word] if word in word_scores[doc] else 0)
+            if word in word_scores[doc]:
+                vec.append(word_scores[doc][word])
+            else:
+                ignore = True
+                break
+        if ignore: continue
         word_vectors.append((doc, vec))
     documents = nlargest(20, map(lambda x: (x[0], score_cosine(x[1], query_vec)), word_vectors), key=lambda x: x[1])
-    for document in documents:
+    for i, document in enumerate(documents):
         with open(dictionary[document[0]], 'r') as f:
-            print(json.load(f)['url'], document[1])
+            print(i, json.load(f)['url'], document[1])

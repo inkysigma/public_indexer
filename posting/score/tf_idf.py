@@ -2,8 +2,29 @@ from posting.post import Posting
 from posting.io import PostingIterator, PostingReader
 from doc.doc_id import DocumentIdDictionary
 import math
-from typing import List
+from typing import List, Tuple, Type
 from collections import defaultdict
+from posting.score import QueryScoringScheme
+from posting.tokenizer import TokenizeResult
+from posting import create_posting_type
+
+
+class TfIdfScoring(QueryScoringScheme):
+    def __init__(self, dictionary: DocumentIdDictionary):
+        self.posting_type = create_posting_type("tf_idf", {"tf_idf": float})
+        self.dictionary = dictionary
+
+    def get_posting_type(self) -> Type[Posting]:
+        return self.posting_type
+
+    def score(self, query: [str], iterator: PostingIterator) -> List[Tuple[Posting, float]]:
+        pass
+
+    def create_posting(self, result: TokenizeResult) -> [Posting]:
+        postings = []
+        for token in result.tokens:
+            postings.append(Posting(self.dictionary.get_doc_id()))
+        return postings
 
 
 def tf_idf(dictionary: DocumentIdDictionary, postings: PostingIterator) -> ([int], [float]):
@@ -26,6 +47,6 @@ def tf_idf_query(words: List[str], dictionary: DocumentIdDictionary, reader: Pos
         word_dict[word] += 1
     for word in word_dict:
         reader.seek(word)
-        inverse_document_frequency = math.log(len(list(reader.get_iterator())) / len(dictionary))
-        scores.append((1 + math.log(word_dict[word] / len(words))) * inverse_document_frequency)
+        inverse_document_frequency = math.log10(len(dictionary) / len(list(reader.get_iterator())))
+        scores.append((1 + math.log10(word_dict[word] / len(words))) * inverse_document_frequency)
     return scores

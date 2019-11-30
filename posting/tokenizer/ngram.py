@@ -1,13 +1,15 @@
 from typing import Type, Optional
 
 from posting import Posting, create_posting_type
-from tokenizer import Tokenizer, TokenizeResult
+from posting.tokenizer import Tokenizer, TokenizeResult
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 from collections import defaultdict
 import re
 from nltk.stem import PorterStemmer
 import json
+from typing import List
+from doc import DocumentIdDictionary
 
 RE_MATCH = re.compile(r"\w+", re.ASCII)
 STEMMER = PorterStemmer()
@@ -45,9 +47,6 @@ def process_token(token):
 
 
 class WordTokenizer(Tokenizer):
-    def get_posting_type(self) -> Type[Posting]:
-        return create_posting_type("word_tokenizer", {"count": int})
-
     def tokenize(self, file_name: str) -> Optional[TokenizeResult]:
         with open(file_name) as file:
             obj = json.load(file)
@@ -66,3 +65,53 @@ class WordTokenizer(Tokenizer):
                     words[token] += 1
                     token_count += 1
             return TokenizeResult(obj["url"], list(words.items()), {"total_count": token_count})
+
+
+def ngram(tokens: List[str], n: int):
+    output = []
+    for i in range(len(tokens) - n + 1):
+        output.append(" ".join(tokens[i:i + n]))
+    return output
+
+
+class NgramTokenizer(Tokenizer):
+    def __init__(self, n: int):
+        self.n = n
+
+    def tokenize(self, file_name: str):
+        with open(file_name) as file:
+            obj = json.load(file)
+            if obj["encoding"].lower() not in PERMITTED_ENCODINGS:
+                return None
+            document = BeautifulSoup(obj["content"], 'lxml', from_encoding=obj["encoding"])
+            words = defaultdict(int)
+            token_count = 0
+
+            tags = list(filter(tag_visible, document.find_all(text=True)))
+            tokens = []
+            for tag in tags:
+                tokens.extend(map(process_token, tokenizer(tag)))
+            for token in ngram(tokens, self.n):
+                if parse_int(token) and len(token) > 5:
+                    continue
+                words[token] += 1
+                token_count += 1
+            return TokenizeResult(obj["url"], list(words.items()), {"total_count": token_count})
+
+
+class BigramTokenizer(NgramTokenizer):
+    def __init__(self):
+        NgramTokenizer.__init__(self, 2)
+
+
+class TrigramTokenizer(NgramTokenizer):
+    def __init__(self):
+        NgramTokenizer.__init__(self, 3)
+
+
+class AnchorTokenizer(Tokenizer):
+    def __init__(self, document: DocumentIdDictionary):
+        pass
+
+    def tokenize(self, file_name: str) -> Optional[TokenizeResult]:
+        pass

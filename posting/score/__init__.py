@@ -1,6 +1,18 @@
 from .tf_idf import *
 from posting.io import PostingReader
-from typing import Callable, List, Tuple
+from posting.tokenizer import TokenizeResult
+from typing import Callable, List, Tuple, Type
+
+
+class QueryScoringScheme:
+    def get_posting_type(self) -> Type[Posting]:
+        raise NotImplementedError
+
+    def score(self, query: [str], iterator: PostingIterator) -> List[Tuple[Posting, float]]:
+        raise NotImplementedError
+
+    def create_posting(self, result: TokenizeResult) -> [Posting]:
+        raise NotImplementedError
 
 
 def score_word(scheme: Callable[[DocumentIdDictionary, PostingIterator], List[Tuple[int, float]]], word: str,
@@ -10,11 +22,10 @@ def score_word(scheme: Callable[[DocumentIdDictionary, PostingIterator], List[Tu
 
 
 def get_normalized_vector(v: List[float]):
-    normalize = sum(f ** 2 for f in v)
+    normalize = math.sqrt(sum(f ** 2 for f in v))
     return map(lambda x: x / normalize, v)
 
 
 def score_cosine(a: List[float], b: List[float]):
-    if len(a) != len(b):
-        raise ValueError("Vectors are not of equal length")
+    assert len(a) != len(b), "Vectors are not of equal length"
     return sum(i * j for i, j in zip(get_normalized_vector(a), get_normalized_vector(b)))

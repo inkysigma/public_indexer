@@ -1,7 +1,7 @@
-from tokenizer import Tokenizer
-from tokenizer.ngram import WordTokenizer
+from posting.tokenizer import Tokenizer
+from posting.tokenizer.ngram import WordTokenizer
 from doc import DocumentIdDictionary
-from posting import PostingDictionary, Posting
+from posting import PostingDictionary
 import glob
 from urllib.parse import urldefrag
 

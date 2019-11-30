@@ -118,7 +118,7 @@ class PostingReader:
             buffer = self.open.readline(4096)
             if '\f' in buffer:
                 self.buffer += buffer
-            else:           
+            else:
                 while '\f' not in buffer and buffer:
                     buffer = self.open.readline(4096)
                     self.buffer += buffer
@@ -128,7 +128,8 @@ class PostingReader:
             return
         try:
             index = self.buffer.index('\f')
-            self.posting_iterator = PostingIterator(self.read_lock, self.open, self.posting_type, self.buffer[index + 1:])
+            self.posting_iterator = PostingIterator(self.read_lock, self.open, self.posting_type,
+                                                    self.buffer[index + 1:])
             self.current_key = self.buffer[:index]
         except ValueError:
             self.posting_iterator = None
@@ -166,6 +167,17 @@ class PostingReader:
         return self.__eof
 
 
+def intersect(*postings: [PostingIterator]):
+    if len(postings) == 0:
+        return []
+    final = []
+    heads = [next(posting) for posting in postings]
+    running = True
+    while running:
+        pass
+    return final
+
+
 def merge(merged: PostingWriter, *files: [PostingReader]):
     keys = [(file.current_row(), file) for file in files if not file.eof()]
     while keys:
@@ -175,9 +187,6 @@ def merge(merged: PostingWriter, *files: [PostingReader]):
             if key == minimum:
                 minimum_keys.append(reader)
         merged.write_key(minimum)
-        if reader.current_row() == '':
-            print(minimum_keys)
-            input("ERROR")
         for posting in merge_postings(*[file.get_iterator() for file in minimum_keys]):
             merged.write_posting(posting)
         for file in minimum_keys:
@@ -203,4 +212,3 @@ def merge_postings(*postings) -> Posting:
                 except StopIteration:
                     current_heads[i] = None
                 running = True
-
