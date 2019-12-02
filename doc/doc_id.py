@@ -29,8 +29,8 @@ class DocumentIdDictionary:
         self.reverse_map = dict()
         self.url_map = dict()
 
-        self.document_properties = defaultdict(dict)
         self.property_index = ["doc_id", "file", "url", *property_index]
+        self.property_map = {key: index for index, key in enumerate(self.property_index)}
 
     def generate_doc_id(self, file: str, url: str) -> str:
         """
@@ -41,7 +41,7 @@ class DocumentIdDictionary:
         """
         if file in self.doc_id:
             return self.doc_id[file]
-        counter = self.counter
+        counter = str(self.counter)
         self.counter += 1
         t = [counter, file, url]
         self.doc_id[file] = t
@@ -63,13 +63,13 @@ class DocumentIdDictionary:
 
     def __getitem__(self, item):
         if type(item) is int:
-            return self.reverse_map[item]
+            return self.reverse_map[item][0]
         else:
-            return self.doc_id[item]
+            return self.doc_id[item][1]
 
     def __setitem__(self, key, value):
         if type(key) is str:
-            self.doc_id[key] = value
+            self.doc_id[key][0] = value
             self.reverse_map[value] = key
         else:
             self.reverse_map[key] = value
@@ -78,24 +78,20 @@ class DocumentIdDictionary:
     def __len__(self):
         return len(self.doc_id)
 
-    def add_document_property(self, file: str, prop: Dict[str, int or float]):
-        self.document_properties[file].update(prop)
+    def add_document_property(self, doc_id: str, properties: Dict[str, int or float]):
+        for prop in properties:
+            self.doc_id[doc_id][self.property_map[prop]] = properties[prop]
 
     def get_document_property(self, key: str or int, prop: str):
-        if type(key) is int:
-            return self.document_properties[self.reverse_map[key]][prop]
-        return self.document_properties[key][prop]
+        return self.doc_id[key][self.property_map[prop]]
 
     def flush(self):
         with open(f'{self.name}/doc_id.reference', 'w+') as file:
-            with open(f'{self.name}/reverse_map.reference', 'w+') as reverse_file:
-                file.write('\t'.join(self.property_index) + '\n')
-                reverse_file.write('\t'.join(self.property_index) + '\n')
-                for key in self.doc_id:
-                    property_string = '\t' + '\t'.join(
-                        [f'{k}\f{v}' for k, v in self.properties[key].items()]) if key in self.properties else ""
-                    file.write(f'{key}\t{self.doc_id[key]}{property_string}\n')
-                    reverse_file.write(f'{self.doc_id[key]}\t{key}{property_string}\n')
+            writer = csv.DictWriter(file, self.property_index)
+            writer.writeheader()
+            for key in self.doc_id:
+                row = {element: self.doc_id[key][element] for element in self.property_index}
+                writer.writerow(row)
 
     def close(self):
         self.flush()

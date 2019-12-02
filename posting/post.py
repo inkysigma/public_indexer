@@ -27,7 +27,7 @@ class Posting:
     @classmethod
     def parse(cls, segment: str):
         segments = segment.split('\v')
-        return cls(segments[0],
+        return cls(int(segments[0]),
                    [cls.REVERSE_MAP[idx][1](token) for idx, token in enumerate(segments[1].split("\t"))])
 
     def __str__(self):

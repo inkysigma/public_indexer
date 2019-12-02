@@ -29,18 +29,17 @@ class PostingWriter:
         :param key:
         :return:
         """
+        if self.keys[key] > 0:
+            self.open.write('\n')
         self.keys[key] = self.open.tell()
-        if self.keys[key] == 0:
-            self.open.write(f"{key}")
-        else:
-            self.open.write(f"\n{key}")
+        self.open.write(f"{key}")
 
     def write_posting(self, posting: Posting):
         self.open.write(f"\f{str(posting)}")
 
     def write(self, *postings):
-        for posting in postings:
-            self.write_posting(posting)
+        partition = "\f" + "\f".join([str(posting) for posting in postings])
+        self.open.write(partition)
 
     def flush(self):
         self.open.flush()
@@ -56,14 +55,42 @@ class PostingWriter:
 class PostingIterator:
     def __init__(self, lock: RLock, file: IO, posting: Type[Posting], init_buffer=None):
         self.lock = lock
+
         self.file = file
         self.posting = posting
+
+        self.position = file.tell()
+        self.posting_buffer = []
+
         self.buffer = "" if not init_buffer else init_buffer
         self.end = False if not init_buffer else init_buffer.endswith('\n')
 
-    def __enter__(self):
-        self.lock.acquire()
-        return self
+    def __read__(self):
+        with self.lock:
+            buffer = self.buffer
+            while '\f' not in buffer and not buffer.endswith('\n') and not self.end:
+                buffer = self.file.readline(8096)
+                if buffer.endswith('\n') or len(buffer) == 0:
+                    self.end = True
+                self.buffer += buffer
+            if self.buffer.endswiths('\n'):
+                self.buffer = self.buffer.rstrip('\n')
+                self.end = True
+            if not self.buffer:
+                return
+            parsed = self.buffer.split('\f')
+            if self.end:
+                self.posting_buffer.extend([self.posting.parse(segment) for segment in parsed])
+            else:
+                self.buffer = parsed[-1]
+                parsed = parsed[:-1]
+                self.posting_buffer.extend([self.posting.parse(segment) for segment in parsed])
+
+    def current_key(self):
+        pass
+
+    def __len__(self):
+        pass
 
     def __iter__(self):
         return self
@@ -86,9 +113,6 @@ class PostingIterator:
             posting = self.buffer.rstrip('\n')
             self.buffer = ""
         return self.posting.parse(posting)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.lock.release()
 
 
 class PostingReader:
@@ -171,10 +195,26 @@ def intersect(*postings: [PostingIterator]):
     if len(postings) == 0:
         return []
     final = []
+
+    postings = list(postings)
     heads = [next(posting) for posting in postings]
+
     running = True
     while running:
-        pass
+        minimum = min(heads)
+        all_equal = True
+        for i in range(len(heads)):
+            while heads[i] is not None and heads[i] < minimum:
+                heads[i] = next(postings[i])
+            if heads[i] is None:
+                running = False
+                break
+            if heads[i] != minimum:
+                all_equal = False
+        if running and all_equal:
+            final.append(minimum)
+            heads = [next(posting) for posting in postings]
+
     return final
 
 

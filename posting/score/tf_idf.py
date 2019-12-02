@@ -20,7 +20,7 @@ class TfIdfScoring(QueryScoringScheme):
     def score(self, query: [str], iterator: PostingIterator) -> List[Tuple[Posting, float]]:
         pass
 
-    def create_posting(self, result: TokenizeResult) -> [Posting]:
+    def create_posting(self, document: str, result: TokenizeResult) -> [Posting]:
         postings = []
         for token in result.tokens:
             postings.append(Posting(self.dictionary.get_doc_id()))

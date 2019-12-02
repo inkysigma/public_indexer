@@ -11,7 +11,10 @@ class QueryScoringScheme:
     def score(self, query: [str], iterator: PostingIterator) -> List[Tuple[Posting, float]]:
         raise NotImplementedError
 
-    def create_posting(self, result: TokenizeResult) -> [Posting]:
+    def create_posting(self, document: str, result: TokenizeResult) -> [Posting]:
+        raise NotImplementedError
+
+    def finalize_posting(self, iterator: PostingIterator):
         raise NotImplementedError
 
 
