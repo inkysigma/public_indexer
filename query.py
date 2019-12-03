@@ -25,7 +25,15 @@ for index in INDEXES:
 @app.route("/", methods=["GET", "POST"])
 def search(request):
     if "query" in request.form:
-        pass
+        top_k = []
+        tokenizer = WordTokenizer()
+        dictionary = SCHEMES["primary"][0]
+        query = tokenizer.tokenizer_query(request.form)
+        documents = nlargest(20, SCHEMES["primary"][1].score(query), key = lambda x: x[1])
+        for i, document in enumerate(documents):
+            with open(dictionary.get_doc_file(document[0]), 'r') as f:
+                top_k.append(i, json.load(f)['url'], document[1])
+        return render_template("index.html", query_result=True, query_results=top_k)
     return render_template("index.html", query_result=False, query_results=[])
 
 
