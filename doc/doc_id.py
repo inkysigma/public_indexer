@@ -1,6 +1,8 @@
 from collections import defaultdict
 from typing import Dict
 import csv
+from urllib.parse import urldefrag
+import os
 
 
 def from_document_dictionary(name):
@@ -19,6 +21,10 @@ def from_document_dictionary(name):
     return dictionary
 
 
+def normalize_url(url: str):
+    return urldefrag(url)[0].rstrip()
+
+
 class DocumentIdDictionary:
     def __init__(self, name: str, property_index: [str]):
         self.name = name
@@ -32,7 +38,10 @@ class DocumentIdDictionary:
         self.property_index = ["doc_id", "file", "url", *property_index]
         self.property_map = {key: index for index, key in enumerate(self.property_index)}
 
-    def generate_doc_id(self, file: str, url: str) -> str:
+    def set_name(self, name: str):
+        self.name = name
+
+    def generate_doc_id(self, file: str, url: str) -> int:
         """
         Generate a document ID and store the identifier in the dictionary
         :param url:
@@ -40,17 +49,21 @@ class DocumentIdDictionary:
         :return: an integer representing the id number that can be used
         """
         if file in self.doc_id:
-            return self.doc_id[file]
-        counter = str(self.counter)
+            return self.doc_id[file][0]
+        counter = self.counter
         self.counter += 1
         t = [counter, file, url]
+        t.extend([None] * len(self.property_map))
         self.doc_id[file] = t
         self.reverse_map[counter] = t
         self.url_map[url] = t
-        return str(counter)
+        return counter
 
-    def find_doc_id(self, file: str):
-        return str(self.doc_id[file][0])
+    def find_doc_id(self, file: str) -> int:
+        return self.doc_id[file][0]
+
+    def find_doc_id_by_url(self, url: str) -> int:
+        return self.url_map[url][0]
 
     def get_doc_file(self, doc_id: int) -> str:
         return self.reverse_map[doc_id][1]
@@ -82,10 +95,15 @@ class DocumentIdDictionary:
         for prop in properties:
             self.doc_id[doc_id][self.property_map[prop]] = properties[prop]
 
-    def get_document_property(self, key: str or int, prop: str):
+    def get_document_property(self, key: int, prop: str):
         return self.doc_id[key][self.property_map[prop]]
 
+    def contains_url(self, url: str):
+        return url in self.url_map
+
     def flush(self):
+        if not os.path.exists(f"{self.name}"):
+            os.mkdir(f"{self.name}")
         with open(f'{self.name}/doc_id.reference', 'w+') as file:
             writer = csv.DictWriter(file, self.property_index)
             writer.writeheader()

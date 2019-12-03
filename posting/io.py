@@ -1,8 +1,10 @@
 from itertools import zip_longest
 
 from typing import Optional, Type, IO
-from .post import Posting
+from .post import Posting, IntersectPosting
 from threading import RLock
+from collections import defaultdict
+from typing import Iterator
 
 TOKENS = {'\n', '\t', '\v', '\f'}
 
@@ -21,7 +23,8 @@ class PostingWriter:
         """
         self.open = open(f"{file_name}.index", 'w+')
         self.index = open(f"{file_name}.index.position", 'w+')
-        self.keys = dict()
+        self.keys = defaultdict(lambda: list([0, 0]))
+        self.curr_key = None
 
     def write_key(self, key: str):
         """
@@ -29,12 +32,14 @@ class PostingWriter:
         :param key:
         :return:
         """
-        if self.keys[key] > 0:
+        self.curr_key = key
+        if len(self.keys[key]) > 0:
             self.open.write('\n')
-        self.keys[key] = self.open.tell()
+        self.keys[key][0] = self.open.tell()
         self.open.write(f"{key}")
 
     def write_posting(self, posting: Posting):
+        self.keys[self.curr_key][1] += 1
         self.open.write(f"\f{str(posting)}")
 
     def write(self, *postings):
@@ -46,34 +51,60 @@ class PostingWriter:
 
     def close(self):
         for key in sorted(self.keys):
-            self.index.write(f"{key}\t{self.keys[key]}\n")
+            self.index.write(f"{key}\t{self.keys[key][0]}\t{self.keys[key][1]}\n")
         self.keys.clear()
         self.index.close()
         self.open.close()
 
 
 class PostingIterator:
-    def __init__(self, lock: RLock, file: IO, posting: Type[Posting], init_buffer=None):
+    BUFFER_SIZE = 65536
+
+    def __init__(self, lock: RLock, file: IO, posting: Type[Posting]):
         self.lock = lock
 
         self.file = file
         self.posting = posting
 
-        self.position = file.tell()
         self.posting_buffer = []
 
-        self.buffer = "" if not init_buffer else init_buffer
-        self.end = False if not init_buffer else init_buffer.endswith('\n')
+        self.buffer = file.readline(PostingIterator.BUFFER_SIZE)
+
+        self.end = False
+        with self.lock:
+            buffer = self.buffer
+            while '\f' not in buffer and not buffer.endswith('\n') and not self.end:
+                buffer = self.file.readline(PostingIterator.BUFFER_SIZE)
+                if buffer.endswith('\n'):
+                    self.end = True
+                self.buffer += buffer
+            if self.buffer.endswith('\n'):
+                self.buffer = self.buffer.rstrip('\n')
+                self.end = True
+        self.position = file.tell()
+
+        parsed = self.buffer.split('\f')
+        self.current = parsed[0]
+        parsed = parsed[1:]
+        if self.end:
+            self.posting_buffer.extend([self.posting.parse(segment) for segment in parsed])
+        else:
+            self.buffer = parsed[-1]
+            parsed = parsed[:-1]
+            self.posting_buffer.extend([self.posting.parse(segment) for segment in parsed])
 
     def __read__(self):
         with self.lock:
             buffer = self.buffer
+            self.file.seek(self.position)
             while '\f' not in buffer and not buffer.endswith('\n') and not self.end:
                 buffer = self.file.readline(8096)
                 if buffer.endswith('\n') or len(buffer) == 0:
                     self.end = True
                 self.buffer += buffer
-            if self.buffer.endswiths('\n'):
+
+            self.position = self.file.tell()
+            if self.buffer.endswith('\n'):
                 self.buffer = self.buffer.rstrip('\n')
                 self.end = True
             if not self.buffer:
@@ -87,32 +118,19 @@ class PostingIterator:
                 self.posting_buffer.extend([self.posting.parse(segment) for segment in parsed])
 
     def current_key(self):
-        pass
-
-    def __len__(self):
-        pass
+        return self.current
 
     def __iter__(self):
         return self
 
     def __next__(self) -> Posting:
-        buffer = self.buffer
-        while "\f" not in buffer and not self.end:
-            buffer = self.file.readline(8000)
-            if buffer.endswith('\n') or not buffer:
-                self.end = True
-            self.buffer += buffer
-        if not self.buffer.rstrip():
-            self.end = True
-            raise StopIteration
-        try:
-            index = self.buffer.index('\f')
-            posting = self.buffer[:index].rstrip('\n')
-            self.buffer = self.buffer[index + 1:]
-        except ValueError:
-            posting = self.buffer.rstrip('\n')
-            self.buffer = ""
-        return self.posting.parse(posting)
+        if self.posting_buffer:
+            return self.posting_buffer.pop(0)
+        if not self.end:
+            self.__read__()
+            if self.posting_buffer:
+                return self.posting_buffer.pop(0)
+        raise StopIteration
 
 
 class PostingReader:
@@ -122,100 +140,69 @@ class PostingReader:
         keys = dict()
         for row in self.index:
             s = row.split('\t')
-            keys[s[0]] = int(s[1])
+            keys[s[0]] = [int(s[1]), int(s[2])]
         self.index.close()
 
         self.keys = keys
 
         self.posting_type = posting
-        self.current_key = None
         self.read_lock = RLock()
-        self.buffer = ""
-        self.__eof = False
-        self.posting_iterator = None
 
-        self.__read__()
+    def __contains__(self, item):
+        return item in self.keys
 
-    def __read__(self):
-        self.buffer = ""
-        try:
-            buffer = self.open.readline(4096)
-            if '\f' in buffer:
-                self.buffer += buffer
-            else:
-                while '\f' not in buffer and buffer:
-                    buffer = self.open.readline(4096)
-                    self.buffer += buffer
-        except EOFError:
-            self.posting_iterator = None
-            self.__eof = True
-            return
-        try:
-            index = self.buffer.index('\f')
-            self.posting_iterator = PostingIterator(self.read_lock, self.open, self.posting_type,
-                                                    self.buffer[index + 1:])
-            self.current_key = self.buffer[:index]
-        except ValueError:
-            self.posting_iterator = None
-            self.__eof = True
-
-    def read_posting(self) -> Optional[Posting]:
-        try:
-            return self.posting_iterator.__next__()
-        except StopIteration:
-            return None
+    def count(self, key: str):
+        return self.keys[key][1]
 
     def get_iterator(self):
-        return self.posting_iterator
-
-    def read_key(self):
-        self.__read__()
-        if not self.current_key:
-            raise EOFError
-        return self.current_key
+        return PostingIterator(self.read_lock, self.open, self.posting_type)
 
     def seek(self, position: int or str):
         if type(position) is int:
             self.open.seek(position)
-            self.__eof = False
-            self.__read__()
         else:
-            self.open.seek(self.keys[position])
-            self.__eof = False
-            self.__read__()
+            self.open.seek(self.keys[position][0])
 
-    def current_row(self) -> str:
-        return self.current_key
-
-    def eof(self):
-        return self.__eof
+    def close(self):
+        self.open.close()
 
 
-def intersect(*postings: [PostingIterator]):
+def intersect(*postings: PostingIterator) -> Iterator[IntersectPosting]:
     if len(postings) == 0:
         return []
+
     final = []
 
     postings = list(postings)
-    heads = [next(posting) for posting in postings]
+    try:
+        heads = [next(posting) if posting else None for posting in postings]
+    except StopIteration:
+        return
 
     running = True
     while running:
-        minimum = min(heads)
+        maximum = max((head for head in heads if head))
         all_equal = True
         for i in range(len(heads)):
-            while heads[i] is not None and heads[i] < minimum:
-                heads[i] = next(postings[i])
             if heads[i] is None:
-                running = False
-                break
-            if heads[i] != minimum:
+                final.append(None)
+                continue
+            try:
+                while heads[i] is not None and heads[i] < maximum:
+                    heads[i] = next(postings[i])
+            except StopIteration:
+                return
+            if heads[i] != maximum:
                 all_equal = False
+            else:
+                final.append(heads[i])
         if running and all_equal:
-            final.append(minimum)
-            heads = [next(posting) for posting in postings]
-
-    return final
+            yield IntersectPosting(*final)
+            try:
+                heads = [next(posting) for posting in postings]
+            except StopIteration:
+                return
+        final.clear()
 
 
 def merge(merged: PostingWriter, *files: [PostingReader]):
@@ -234,7 +221,7 @@ def merge(merged: PostingWriter, *files: [PostingReader]):
         keys = [(file.current_row(), file) for file in files if not file.eof()]
 
 
-def merge_postings(*postings) -> Posting:
+def merge_postings(*postings) -> Iterator[Posting]:
     iterations = postings
     current_heads = [next(it) for it in iterations]
     running = True

@@ -1,7 +1,7 @@
 from typing import Type, Optional
 
 from posting import Posting, create_posting_type
-from posting.tokenizer import Tokenizer, TokenizeResult
+from posting.tokenizer import Tokenizer, TokenizeResult, Token
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 from collections import defaultdict
@@ -64,7 +64,11 @@ class WordTokenizer(Tokenizer):
                         continue
                     words[token] += 1
                     token_count += 1
-            return TokenizeResult(obj["url"], list(words.items()), {"total_count": token_count})
+            return TokenizeResult(obj["url"], [Token(word, count) for word, count in words.items()],
+                                  token_count)
+
+    def tokenizer_query(self, query: str):
+        return list(RE_MATCH.findall(query))
 
 
 def ngram(tokens: List[str], n: int):
@@ -75,6 +79,7 @@ def ngram(tokens: List[str], n: int):
 
 
 class NgramTokenizer(Tokenizer):
+
     def __init__(self, n: int):
         self.n = n
 
@@ -96,7 +101,11 @@ class NgramTokenizer(Tokenizer):
                     continue
                 words[token] += 1
                 token_count += 1
-            return TokenizeResult(obj["url"], list(words.items()), {"total_count": token_count})
+            return TokenizeResult(obj["url"], [Token(word, count) for word, count in words.items()],
+                                  token_count)
+
+    def tokenizer_query(self, query: str):
+        return ngram(list(map(process_token, RE_MATCH.findall(query))), self.n)
 
 
 class BigramTokenizer(NgramTokenizer):

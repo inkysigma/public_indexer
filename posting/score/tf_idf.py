@@ -2,28 +2,73 @@ from posting.post import Posting
 from posting.io import PostingIterator, PostingReader
 from doc.doc_id import DocumentIdDictionary
 import math
-from typing import List, Tuple, Type
+from typing import List, Tuple, Type, Optional
 from collections import defaultdict
 from posting.score import QueryScoringScheme
 from posting.tokenizer import TokenizeResult
-from posting import create_posting_type
+from posting import create_posting_type, intersect
+
+
+def get_normalized_vector(v: List[float]):
+    normalize = math.sqrt(sum(f ** 2 for f in v if f))
+    return map(lambda x: x / normalize, v)
+
+
+def score_cosine(a: List[float], b: List[float]):
+    assert len(a) != len(b), "Vectors are not of equal length"
+    return sum(
+        i * j for i, j in zip(get_normalized_vector(a), get_normalized_vector(b)) if i is not None and j is not None)
 
 
 class TfIdfScoring(QueryScoringScheme):
-    def __init__(self, dictionary: DocumentIdDictionary):
-        self.posting_type = create_posting_type("tf_idf", {"tf_idf": float})
+    def __init__(self, dictionary: DocumentIdDictionary, file: Optional[str]):
+        self.posting_type = create_posting_type("tf_idf", {"count": int, "tf": float, "tf_idf": float})
         self.dictionary = dictionary
+        if file:
+            self.reader = PostingReader(file, self.posting_type)
+        else:
+            self.reader = None
 
     def get_posting_type(self) -> Type[Posting]:
         return self.posting_type
 
-    def score(self, query: [str], iterator: PostingIterator) -> List[Tuple[Posting, float]]:
-        pass
+    def score(self, query: [str]) -> List[Tuple[int, float]]:
+        query_vec = []
+        word_dict = defaultdict(int)
+        for word in query:
+            word_dict[word] += 1
+        for word in word_dict:
+            inverse_document_frequency = math.log10(len(self.dictionary) / self.reader.count(word))
+            query_vec.append((1 + math.log10(word_dict[word] / len(query))) * inverse_document_frequency)
+        query_vec = query_vec
+        iterators = []
+        for word in query:
+            if word in query:
+                self.reader.seek(word)
+                iterators.append(self.reader.get_iterator())
+            else:
+                iterators.append(None)
+        iterator = intersect(*iterators)
+        scores = []
+        for posting in iterator:
+            scores.append((posting.doc_id, score_cosine(query_vec, posting.get_properties("tf_idf"))))
+        return scores
 
-    def create_posting(self, document: str, result: TokenizeResult) -> [Posting]:
+    def create_posting(self, document: str, result: TokenizeResult) -> [Tuple[str, Posting]]:
         postings = []
         for token in result.tokens:
-            postings.append(Posting(self.dictionary.get_doc_id()))
+            postings.append((token.word,
+                             self.posting_type(self.dictionary.generate_doc_id(document, result.url),
+                                               {"tf": float(token.count) / result.total_count,
+                                                "tf_idf": 0,
+                                                "count": token.count})))
+        return postings
+
+    def finalize_posting(self, iterator: PostingIterator) -> [Posting]:
+        postings = list(iterator)
+        idf = 1 + math.log10(len(self.dictionary.doc_id) / len(postings))
+        for posting in postings:
+            posting.set_property("tf_idf", idf * math.log10(posting.get_property("tf")))
         return postings
 
 

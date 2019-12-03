@@ -1,20 +1,35 @@
 from heapq import nlargest
-from posting.io import PostingReader
-from posting.tokenizer.ngram import WordTokenizer
 from doc import from_document_dictionary
-from posting.score import tf_idf, tf_idf_query, score_word, score_cosine
+from posting.score.tf_idf import TfIdfScoring
 import re
-from collections import defaultdict
 from nltk import PorterStemmer
 import json
+from flask import Flask, render_template
+
+from posting.tokenizer.ngram import WordTokenizer
 
 STEMMER = PorterStemmer()
 SEQUENCE = re.compile(r"\w+", re.ASCII)
 
-if __name__ == "__main__":
-    Posting = WordTokenizer().get_posting_type()
-    reader = PostingReader("finalized/secondary", Posting)
+app = Flask(__name__)
 
+INDEXES = {"primary"}
+SCHEMES = dict()
+
+for index in INDEXES:
+    dictionary = from_document_dictionary(index)
+    scheme = TfIdfScoring(dictionary, f"{index}/scheme")
+    SCHEMES[index] = (dictionary, scheme)
+
+
+@app.route("/", methods=["GET", "POST"])
+def search(request):
+    if "query" in request.form:
+        pass
+    return render_template("index.html", query_result=False, query_results=[])
+
+
+"""
     query = input("What documents would you like to lookup? ")
     sequence = SEQUENCE.findall(query.lower())
     dictionary = from_document_dictionary("secondary")
@@ -34,8 +49,17 @@ if __name__ == "__main__":
                 ignore = True
                 break
         if ignore: continue
-        word_vectors.append((doc, vec))
-    documents = nlargest(20, map(lambda x: (x[0], score_cosine(x[1], query_vec)), word_vectors), key=lambda x: x[1])
-    for i, document in enumerate(documents):
-        with open(dictionary[document[0]], 'r') as f:
-            print(i, json.load(f)['url'], document[1])
+        word_vectors.append((doc, vec))"""
+
+if __name__ == "__main__":
+    query = None
+    tokenizer = WordTokenizer()
+    dictionary = SCHEMES["primary"][0]
+    while query != "exit":
+        query = input("What would you like to look up? ")
+        query = tokenizer.tokenizer_query(query)
+        documents = nlargest(20, SCHEMES["primary"][1].score(query), key=lambda x: x[1])
+        for i, document in enumerate(documents):
+            with open(dictionary.get_doc_file(document[0]), 'r') as f:
+                print(i, json.load(f)['url'], document[1])
+    app.run(port=8081)

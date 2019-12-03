@@ -7,6 +7,7 @@ class Posting:
 
     def __init__(self, doc_id: int, properties: Dict[str, int or float] or [float or int] = None):
         self.doc_id = int(doc_id)
+
         if type(properties) is dict:
             temp_properties = [None] * len(type(self).SORTED_PROPERTIES)
             for element in properties:
@@ -36,33 +37,28 @@ class Posting:
 
     def __eq__(self, other: "Posting"):
         if type(other) is not type(self):
-            return False
+            raise TypeError
         return self.doc_id == other.doc_id
 
     def __lt__(self, other: "Posting"):
         if type(other) is not type(self):
-            return False
+            raise TypeError
         return self.doc_id < other.doc_id
 
     def set_property(self, key: str, value: Any):
         self.properties[self.get_index(key)] = value
 
-    def __setitem__(self, key: str, value: Any):
-        self.set_property(key, value)
-
     def get_property(self, key: str):
         return self.properties[self.get_index(key)]
 
-    def __getitem__(self, item: str):
-        return self.get_property(item)
 
+class IntersectPosting:
+    def __init__(self, *postings: Posting):
+        self.doc_id = postings[0].doc_id
+        self.postings = postings
 
-class PostingInformation:
-    def __init__(self):
-        pass
-
-    def __str__(self):
-        pass
+    def get_properties(self, key: str):
+        return [posting.get_property(key) for posting in self.postings]
 
 
 # noinspection PyTypeChecker

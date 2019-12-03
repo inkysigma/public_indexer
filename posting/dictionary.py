@@ -2,6 +2,7 @@ from .io import PostingWriter
 from collections import defaultdict
 from typing import Dict, List
 from .post import Posting
+import os
 
 
 class PostingDictionary:
@@ -19,7 +20,11 @@ class PostingDictionary:
         return self.total_count
 
     def flush(self):
-        writer = PostingWriter(f"{self.name}/{self.counter}")
+        if not os.path.exists(f"{self.name}/partials"):
+            if not os.path.exists(f"{self.name}"):
+                os.mkdir(f"{self.name}")
+            os.mkdir(f"{self.name}/partials")
+        writer = PostingWriter(f"{self.name}/partials/{self.counter}")
         for key in sorted(self.dictionary):
             writer.write_key(key)
             writer.write(*self.dictionary[key])

@@ -3,7 +3,6 @@ import unittest
 
 class BigramTest(unittest.TestCase):
     def test_bigram(self):
-
         self.assertEqual(True, False)
 
 

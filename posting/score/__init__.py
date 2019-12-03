@@ -1,5 +1,7 @@
-from .tf_idf import *
-from posting.io import PostingReader
+from posting.io import PostingReader, PostingIterator
+from posting.post import Posting
+from doc import DocumentIdDictionary
+import math
 from posting.tokenizer import TokenizeResult
 from typing import Callable, List, Tuple, Type
 
@@ -8,10 +10,10 @@ class QueryScoringScheme:
     def get_posting_type(self) -> Type[Posting]:
         raise NotImplementedError
 
-    def score(self, query: [str], iterator: PostingIterator) -> List[Tuple[Posting, float]]:
+    def score(self, query: [str]) -> List[Tuple[Posting, float]]:
         raise NotImplementedError
 
-    def create_posting(self, document: str, result: TokenizeResult) -> [Posting]:
+    def create_posting(self, document: str, result: TokenizeResult) -> [Tuple[str, Posting]]:
         raise NotImplementedError
 
     def finalize_posting(self, iterator: PostingIterator):

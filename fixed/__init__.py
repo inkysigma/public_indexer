@@ -1,21 +1,30 @@
 class FixedScoreDictionary:
-    def __init__(self):
-        pass
+    def __init__(self, file_name: str):
+        self.file = open('file_name', 'rw+')
+        self.keys = dict()
+        for row in self.file:
+            key, value = row.split(',')
+            value = float(value)
+            self.keys[key] = value
 
     def __setitem__(self, key: int, value: float):
-        pass
+        self.keys[key] = value
 
     def __getitem__(self, item: int):
-        pass
+        return self.keys[item]
+
+    def flush(self):
+        self.file.seek(0)
+        self.file.writelines([f"{key},{value}" for key, value in self.keys.items()])
+        self.file.flush()
+
+    def close(self):
+        self.file.close()
 
 
 class FixedScorer:
     def process(self):
-        pass
+        raise NotImplementedError
 
     def flush(self):
-        pass
-
-
-class PageRank:
-    pass
+        raise NotImplementedError
