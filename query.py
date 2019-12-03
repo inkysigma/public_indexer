@@ -5,7 +5,7 @@ import re
 from nltk import PorterStemmer
 import json
 from flask import Flask, render_template
-
+from heapq import nlargest
 from posting.tokenizer.ngram import WordTokenizer
 
 STEMMER = PorterStemmer()
@@ -22,34 +22,21 @@ for index in INDEXES:
     SCHEMES[index] = (dictionary, scheme)
 
 
+class QueryResult:
+    def __init__(self, url: str, score: float):
+        self.url = url
+        self.score = score
+
+
 @app.route("/", methods=["GET", "POST"])
 def search(request):
     if "query" in request.form:
-        pass
+        tokens = WordTokenizer().tokenizer_query(request.form['query'])
+        top = nlargest(10, SCHEMES["primary"][1].score(tokens), key=lambda x: x[1])
+        top = [QueryResult(SCHEMES["primary"][0].find_url_by_id(doc_id), score) for doc_id, score in top]
+        return render_template("index.html", query_result=True, query_results=top)
     return render_template("index.html", query_result=False, query_results=[])
 
-
-"""
-    query = input("What documents would you like to lookup? ")
-    sequence = SEQUENCE.findall(query.lower())
-    dictionary = from_document_dictionary("secondary")
-    query_vec = tf_idf_query([STEMMER.stem(word) for word in sequence], dictionary, reader)
-    word_scores = defaultdict(lambda: defaultdict(float))
-    for word in sequence:
-        for doc_id, score in score_word(tf_idf, STEMMER.stem(word), dictionary, reader):
-            word_scores[doc_id][word] = score
-    word_vectors = []
-    for doc in word_scores:
-        vec = []
-        ignore = False
-        for word in sequence:
-            if word in word_scores[doc]:
-                vec.append(word_scores[doc][word])
-            else:
-                ignore = True
-                break
-        if ignore: continue
-        word_vectors.append((doc, vec))"""
 
 if __name__ == "__main__":
     query = None

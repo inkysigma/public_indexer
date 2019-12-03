@@ -1,14 +1,28 @@
-from posting.tokenizer import Tokenizer, TokenizeResult
+from posting.tokenizer import Tokenizer, TokenizeResult, Token
 from doc import DocumentIdDictionary, normalize_url
 from typing import Optional
 import json
 from bs4 import BeautifulSoup
 from bs4.element import SoupStrainer
+from collections import defaultdict
+from nltk.stem import PorterStemmer
+import re
 
 PERMITTED_ENCODINGS = {
     "utf-8", "latin-1", "utf-16", "utf-32", "ascii", "ISO-8859-1".lower(), "UTF-8-SIG".lower(), "EUC-KR".lower(),
     "EUC-JP".lower()
 }
+
+RE_MATCH = re.compile(r"\w+", re.ASCII)
+STEMMER = PorterStemmer()
+
+
+def tokenizer(tag):
+    return RE_MATCH.findall(tag.strip())
+
+
+def process_token(token):
+    return STEMMER.stem(token.lower().strip())
 
 
 class AnchorTokenizer(Tokenizer):
@@ -26,13 +40,23 @@ class AnchorTokenizer(Tokenizer):
             # https://stackoverflow.com/questions/1080411/retrieve-links-from-web-page-using-python-and-beautifulsoup
             document = BeautifulSoup(obj["content"], 'lxml', from_encoding=obj["encoding"])
             total_count = 0
+            targets = defaultdict(lambda: defaultdict(int))
             for element in document.find_all('a', href=True):
-                element['href']
+                link = element['href']
+                if self.document.contains_url(normalize_url(link)):
+                    target_id = self.document.find_doc_id_by_url(normalize_url(link))
+                    text_body = element.getText()
+                    for token in map(process_token, tokenizer(text_body)):
+                        targets[token][target_id] += 1
 
-            return TokenizeResult()
+            tokens = []
+            for word in targets:
+                for target in targets[word]:
+                    tokens.append(Token(word, targets[word][target], {"target_id": target_id}))
+            return TokenizeResult(normalize_url(obj['url']), tokens, total_count)
 
     def tokenizer_query(self, query: str):
-        pass
+        return list(map(process_token, tokenizer(query)))
 
 
 class PositionalTokenizer(Tokenizer):

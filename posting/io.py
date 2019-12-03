@@ -33,7 +33,7 @@ class PostingWriter:
         :return:
         """
         self.curr_key = key
-        if len(self.keys[key]) > 0:
+        if len(self.keys) > 0:
             self.open.write('\n')
         self.keys[key][0] = self.open.tell()
         self.open.write(f"{key}")
@@ -42,8 +42,13 @@ class PostingWriter:
         self.keys[self.curr_key][1] += 1
         self.open.write(f"\f{str(posting)}")
 
-    def write(self, *postings):
-        partition = "\f" + "\f".join([str(posting) for posting in postings])
+    def write(self, *postings: Posting):
+        partition = "\f"
+        total_count = 0
+        for posting in postings:
+            total_count += 1
+            partition += "\f".join([str(posting) for posting in postings])
+        self.keys[self.curr_key][1] += total_count
         self.open.write(partition)
 
     def flush(self):

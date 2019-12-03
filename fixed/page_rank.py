@@ -20,15 +20,24 @@ class PageRank(fixed.FixedScorer):
         into the file.
         """
         links = defaultdict(lambda: defaultdict(int))
-        for key, value in self.dictionary.reverse_map:
+        link_count = defaultdict(int)
+        for key, value in self.dictionary.reverse_map.items():
             file = value[1]
             with open(file, 'r') as f:
                 response = json.load(f)
+                count = 0
                 for link in BeautifulSoup(response, parse_only=SoupStrainer('a')):
+                    count += 1
                     normalized_url = normalize_url(link)
                     if self.dictionary.contains_url(normalized_url):
                         associated_id = self.dictionary.find_doc_id_by_url(normalized_url)
                         links[self.dictionary.find_doc_id(file)][associated_id] += 1
+                link_count[key] = count
+
+        incoming_links = defaultdict(lambda: defaultdict(int))
+        for key, value in links.items():
+            for outgoing, count in value.items():
+                incoming_links[outgoing][key] += count
 
         prev_weights = defaultdict(float)
         weights = defaultdict(float)
@@ -36,10 +45,9 @@ class PageRank(fixed.FixedScorer):
             prev_weights[key] = 1
 
         for _ in range(self.iterations):
-            for key in links:
-                total_outgoing = sum(links[key].values())
-                for associated_id, count in links[key].items():
-                    weights[associated_id] += self.alpha * count / total_outgoing * prev_weights[key]
+            for key in incoming_links:
+                for incoming, count in incoming_links[key].items():
+                    weights[key] += self.alpha * count / link_count[incoming] * prev_weights[incoming]
             for key in links:
                 weights[key] += 1 - self.alpha
             prev_weights = weights

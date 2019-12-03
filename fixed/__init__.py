@@ -1,6 +1,11 @@
+import os
+
+
 class FixedScoreDictionary:
     def __init__(self, file_name: str):
-        self.file = open('file_name', 'rw+')
+        if not os.path.exists(f'{file_name}'):
+            os.mkdir(f'{file_name}')
+        self.file = open(f'{file_name}/fixed.reference', 'rw+')
         self.keys = dict()
         for row in self.file:
             key, value = row.split(',')

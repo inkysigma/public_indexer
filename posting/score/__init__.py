@@ -20,6 +20,20 @@ class QueryScoringScheme:
         raise NotImplementedError
 
 
+class MultiScoringScheme:
+    def score(self, query: [str]) -> List[Tuple[int, float]]:
+        pass
+
+    def __init__(self, document_id: DocumentIdDictionary,
+                 *schemes: Tuple[DocumentIdDictionary, PostingReader, QueryScoringScheme]):
+        """
+        Scoring multiple schemes simultaneously
+        :param document_id:
+        :param schemes:
+        """
+        self.schemes = schemes
+
+
 def score_word(scheme: Callable[[DocumentIdDictionary, PostingIterator], List[Tuple[int, float]]], word: str,
                dictionary: DocumentIdDictionary, reader: PostingReader) -> List[Tuple[int, float]]:
     reader.seek(word)

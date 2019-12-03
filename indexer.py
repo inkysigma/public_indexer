@@ -9,6 +9,7 @@ from fixed.page_rank import PageRank
 from posting.score.tf_idf import TfIdfScoring
 import glob
 from multiprocessing import Pool
+import os
 
 ROOT_DIR = "/home/lopes/Datasets/IR/DEV"
 
