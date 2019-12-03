@@ -58,7 +58,7 @@ class TfIdfScoring(QueryScoringScheme):
         postings = []
         for token in result.tokens:
             postings.append((token.word,
-                             self.posting_type(self.dictionary.generate_doc_id(document, result.url),
+                             self.posting_type(self.dictionary.find_doc_id(document),
                                                {"tf": float(token.count) / result.total_count,
                                                 "tf_idf": 0,
                                                 "count": token.count})))

@@ -18,7 +18,7 @@ SCHEMES = dict()
 
 for index in INDEXES:
     dictionary = from_document_dictionary(index)
-    scheme = TfIdfScoring(dictionary, f"{index}/scheme")
+    scheme = TfIdfScoring(dictionary, f"{index}/schemed")
     SCHEMES[index] = (dictionary, scheme)
 
 

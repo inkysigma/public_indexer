@@ -1,6 +1,5 @@
 from typing import Type, Optional
 
-from posting import Posting, create_posting_type
 from posting.tokenizer import Tokenizer, TokenizeResult, Token
 from bs4 import BeautifulSoup
 from bs4.element import Comment
@@ -48,7 +47,7 @@ def process_token(token):
 
 class WordTokenizer(Tokenizer):
     def tokenize(self, file_name: str) -> Optional[TokenizeResult]:
-        with open(file_name) as file:
+        with open(file_name, 'r') as file:
             obj = json.load(file)
             if obj["encoding"].lower() not in PERMITTED_ENCODINGS:
                 return None
@@ -84,7 +83,7 @@ class NgramTokenizer(Tokenizer):
         self.n = n
 
     def tokenize(self, file_name: str):
-        with open(file_name) as file:
+        with open(file_name, 'r') as file:
             obj = json.load(file)
             if obj["encoding"].lower() not in PERMITTED_ENCODINGS:
                 return None
@@ -116,11 +115,3 @@ class BigramTokenizer(NgramTokenizer):
 class TrigramTokenizer(NgramTokenizer):
     def __init__(self):
         NgramTokenizer.__init__(self, 3)
-
-
-class AnchorTokenizer(Tokenizer):
-    def __init__(self, document: DocumentIdDictionary):
-        pass
-
-    def tokenize(self, file_name: str) -> Optional[TokenizeResult]:
-        pass

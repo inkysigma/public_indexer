@@ -6,7 +6,10 @@
 </head>
 <body>
 <form action="" method="post" novalidate>
-    <input name="query" type="text" />
+    <label for="query" style="display: none">
+        Search:
+    </label>
+    <input id="query" name="query" type="text" />
     <input type="submit" value="Search" />
 </form>
 {% if g.query_result %}

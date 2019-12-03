@@ -54,8 +54,11 @@ class DocumentIdDictionary:
         self.counter += 1
         t = [counter, file, url]
         t.extend([None] * len(self.property_map))
+        # doc_id maps the file name to the tuple
         self.doc_id[file] = t
+        # reverse map maps the doc_id to the tuple
         self.reverse_map[counter] = t
+        # url maps the url to the tuple
         self.url_map[url] = t
         return counter
 
@@ -69,7 +72,7 @@ class DocumentIdDictionary:
         return self.reverse_map[doc_id][1]
 
     def find_url_by_file(self, file: str):
-        return self.reverse_map[file][2]
+        return self.doc_id[file][2]
 
     def find_url_by_id(self, doc_id: int) -> str:
         return self.doc_id[doc_id][2]
@@ -91,12 +94,12 @@ class DocumentIdDictionary:
     def __len__(self):
         return len(self.doc_id)
 
-    def add_document_property(self, doc_id: str, properties: Dict[str, int or float]):
+    def add_document_property(self, doc_id: int, properties: Dict[str, int or float]):
         for prop in properties:
-            self.doc_id[doc_id][self.property_map[prop]] = properties[prop]
+            self.reverse_map[doc_id][self.property_map[prop]] = properties[prop]
 
-    def get_document_property(self, key: int, prop: str):
-        return self.doc_id[key][self.property_map[prop]]
+    def get_document_property(self, doc_id: int, prop: str):
+        return self.reverse_map[doc_id][self.property_map[prop]]
 
     def contains_url(self, url: str):
         return url in self.url_map
@@ -108,7 +111,8 @@ class DocumentIdDictionary:
             writer = csv.DictWriter(file, self.property_index)
             writer.writeheader()
             for key in self.doc_id:
-                row = {element: self.doc_id[key][element] for element in self.property_index}
+                row = {element: self.doc_id[key][self.property_map[element]]
+                       for element in self.property_index}
                 writer.writerow(row)
 
     def close(self):

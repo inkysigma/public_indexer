@@ -205,20 +205,34 @@ def intersect(*postings: PostingIterator) -> Iterator[IntersectPosting]:
         final.clear()
 
 
-def merge(merged: PostingWriter, *files: [PostingReader]):
-    keys = [(file.current_row(), file) for file in files if not file.eof()]
+def merge(merged: PostingWriter, *files: PostingReader):
+    keys = [iter(sorted(file.keys.keys())) for file in files]
+    readers = [file for file in files]
+    heads = []
+
+    def update_heads(elements):
+        nonlocal keys
+        for idx in elements:
+            if not keys[idx]:
+                continue
+            try:
+                heads.append((idx, next(keys[idx])))
+            except StopIteration:
+                keys[idx] = None
+
+    update_heads(range(len(keys)))
     while keys:
-        minimum = min(keys, key=lambda x: x[0])[0]
+        minimum = min(heads, key=lambda x: x[1])
         minimum_keys = []
-        for key, reader in keys:
-            if key == minimum:
-                minimum_keys.append(reader)
+        for i, head in heads:
+            if head == minimum:
+                minimum_keys.append(i)
         merged.write_key(minimum)
-        for posting in merge_postings(*[file.get_iterator() for file in minimum_keys]):
+        for i in minimum_keys:
+            readers[i].seek(minimum)
+        for posting in merge_postings(*[readers[i].get_iterator() for i in minimum_keys]):
             merged.write_posting(posting)
-        for file in minimum_keys:
-            file.read_key()
-        keys = [(file.current_row(), file) for file in files if not file.eof()]
+        update_heads(minimum_keys)
 
 
 def merge_postings(*postings) -> Iterator[Posting]:
