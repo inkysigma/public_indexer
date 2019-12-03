@@ -10,7 +10,7 @@ from nltk.stem import PorterStemmer
 import json
 from typing import List
 from doc import DocumentIdDictionary
-
+#page_conten=dict()
 RE_MATCH = re.compile(r"\w+", re.ASCII)
 STEMMER = PorterStemmer()
 
@@ -53,7 +53,7 @@ class WordTokenizer(Tokenizer):
             if obj["encoding"].lower() not in PERMITTED_ENCODINGS:
                 return None
             document = BeautifulSoup(obj["content"], 'lxml', from_encoding=obj["encoding"])
-
+            # check_for_duplicate(obj["url"],obj["content"],page_content)
             words = defaultdict(int)
             token_count = 0
             for tag in filter(tag_visible, document.find_all(text=True)):
