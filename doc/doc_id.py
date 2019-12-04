@@ -11,13 +11,7 @@ def from_document_dictionary(name):
         fields = reader.fieldnames[3:]
         dictionary = DocumentIdDictionary(name, fields)
         for row in reader.reader:
-            key, value, *properties = row.split('\t')
-            dictionary[key] = int(value)
-            property_map = dict()
-            for prop in properties:
-                name, target = prop.split('\f')
-                property_map[name] = target
-            dictionary.add_document_property(key, property_map)
+            dictionary.add_row(row)
     return dictionary
 
 
@@ -37,6 +31,15 @@ class DocumentIdDictionary:
 
         self.property_index = ["doc_id", "file", "url", *property_index]
         self.property_map = {key: index for index, key in enumerate(self.property_index)}
+
+    def add_row(self, row):
+        t = row
+        if t[0] is None:
+            raise ValueError
+        t[0] = int(t[0])
+        self.doc_id[t[1]] = t
+        self.reverse_map[int(t[0])] = t
+        self.url_map[t[2]] = t
 
     def set_name(self, name: str):
         self.name = name

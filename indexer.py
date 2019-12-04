@@ -1,5 +1,6 @@
 from posting.tokenizer import Tokenizer
 from posting.tokenizer.ngram import WordTokenizer, BigramTokenizer, TrigramTokenizer
+from posting.tokenizer.bold import BoldTokenizer
 from posting.tokenizer.anchor import AnchorTokenizer, PositionalTokenizer
 from doc import DocumentIdDictionary, normalize_url, from_document_dictionary
 from posting import PostingDictionary, merge, PostingWriter, PostingReader

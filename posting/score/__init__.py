@@ -2,8 +2,9 @@ from posting.io import PostingReader, PostingIterator
 from posting.post import Posting
 from doc import DocumentIdDictionary
 import math
-from posting.tokenizer import TokenizeResult
+from posting.tokenizer import TokenizeResult, Tokenizer
 from typing import Callable, List, Tuple, Type
+from collections import defaultdict
 
 
 class QueryScoringScheme:
@@ -21,11 +22,17 @@ class QueryScoringScheme:
 
 
 class MultiScoringScheme:
-    def score(self, query: [str]) -> List[Tuple[int, float]]:
-        pass
+    def score(self, query: str) -> List[Tuple[int, float]]:
+        array = defaultdict(float)
+        for factor, tokenizer, scheme in self.schemes:
+            tq = tokenizer.tokenizer_query(query)
+            if not tq:
+                continue
+            for doc_id, score in scheme.score(tq):
+                array[doc_id] += factor * score
+        return list(array.items())
 
-    def __init__(self, document_id: DocumentIdDictionary,
-                 *schemes: Tuple[DocumentIdDictionary, PostingReader, QueryScoringScheme]):
+    def __init__(self, *schemes: Tuple[int, Tokenizer, QueryScoringScheme]):
         """
         Scoring multiple schemes simultaneously
         :param document_id:

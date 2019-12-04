@@ -213,23 +213,25 @@ def intersect(*postings: PostingIterator) -> Iterator[IntersectPosting]:
 def merge(merged: PostingWriter, *files: PostingReader):
     keys = [iter(sorted(file.keys.keys())) for file in files]
     readers = [file for file in files]
-    heads = []
+    heads = dict()
 
     def update_heads(elements):
         nonlocal keys
         for idx in elements:
+            if idx in heads:
+                del heads[idx]
             if not keys[idx]:
                 continue
             try:
-                heads.append((idx, next(keys[idx])))
+                heads[idx] = (idx, next(keys[idx]))
             except StopIteration:
                 keys[idx] = None
 
     update_heads(range(len(keys)))
-    while keys:
-        minimum = min(heads, key=lambda x: x[1])
+    while heads:
+        minimum = min(heads.values(), key=lambda x: x[1])[1]
         minimum_keys = []
-        for i, head in heads:
+        for i, head in heads.values():
             if head == minimum:
                 minimum_keys.append(i)
         merged.write_key(minimum)

@@ -12,8 +12,9 @@
     <input id="query" name="query" type="text" />
     <input type="submit" value="Search" />
 </form>
-{% if g.query_result %}
-    {% for result in g.query_results %}
+<p>Retrieved in {{ difference }}</p>
+{% if query_result %}
+    {% for result in query_results %}
         <a href="{{ result.url }}">{{ result.url }}</a> - {{ result.score }}
     {% endfor %}
 {% endif %}

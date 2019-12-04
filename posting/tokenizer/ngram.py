@@ -104,7 +104,10 @@ class NgramTokenizer(Tokenizer):
                                   token_count)
 
     def tokenizer_query(self, query: str):
-        return ngram(list(map(process_token, RE_MATCH.findall(query))), self.n)
+        grams = ngram(list(map(process_token, RE_MATCH.findall(query))), self.n)
+        if len(grams) < self.n:
+            return []
+        return grams
 
 
 class BigramTokenizer(NgramTokenizer):

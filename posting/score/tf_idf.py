@@ -66,9 +66,9 @@ class TfIdfScoring(QueryScoringScheme):
 
     def finalize_posting(self, iterator: PostingIterator) -> [Posting]:
         postings = list(iterator)
-        idf = 1 + math.log10(len(self.dictionary.doc_id) / len(postings))
+        idf = math.log10(len(self.dictionary.doc_id) / len(postings))
         for posting in postings:
-            posting.set_property("tf_idf", idf * math.log10(posting.get_property("tf")))
+            posting.set_property("tf_idf", idf * math.log10(1 + posting.get_property("tf")))
         return postings
 
 
