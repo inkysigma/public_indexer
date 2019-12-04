@@ -1,5 +1,9 @@
 from typing import List, Dict, Tuple, Any, Type
 
+def dirty_string(segment):
+    if type(segment) is list:
+        return ",".join(segment)
+    return str(segment)
 
 class Posting:
     SORTED_PROPERTIES: Dict[str, Tuple[type, int]] = None
@@ -32,7 +36,7 @@ class Posting:
                    [cls.REVERSE_MAP[idx][1](token) for idx, token in enumerate(segments[1].split("\t"))])
 
     def __str__(self):
-        property_string = '\t'.join([str(prop) for prop in self.properties])
+        property_string = '\t'.join([dirty_string(prop) for prop in self.properties])
         return f"{self.doc_id}\v{property_string}"
 
     def __eq__(self, other: "Posting"):
