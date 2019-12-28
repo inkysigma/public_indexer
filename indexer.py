@@ -10,32 +10,49 @@ from fixed.page_rank import PageRank
 from posting.score.tf_idf import TfIdfScoring
 import glob
 from multiprocessing import Pool
-import os
 
 ROOT_DIR = "/home/lopes/Datasets/IR/DEV"
 
 
-def merge_files(name: str, posting, scheme):
+def merge_files(name: str, posting, query_scheme):
     writer = PostingWriter(f"{name}/finalized")
     total_count = len(glob.glob(f"{name}/partials/*.index"))
     merge(writer, *[PostingReader(f"{name}/partials/{file}", posting) for file in range(total_count)])
     writer.flush()
     writer.close()
+    scheme(name, posting, query_scheme)
 
+
+def scheme(name: str, posting, query_scheme):
     reader = PostingReader(f"{name}/finalized", posting)
     writer = PostingWriter(f"{name}/schemed")
     for key in reader.keys:
         reader.seek(key)
-        writer.write(*scheme.finalize_posting(reader.get_iterator()))
+        writer.write_key(key)
+        writer.write(*query_scheme.finalize_posting(reader.get_iterator()))
+    writer.flush()
+    writer.close()
+    if type(query_scheme) is TfIdfScoring:
+        champion(name, posting)
+
+
+def champion(name: str, posting):
+    writer = PostingWriter(f"{name}/champion")
+    reader = PostingReader(f"{name}/schemed", posting)
+    for key in sorted(reader.keys.keys()):
+        writer.write_key(key)
+        writer.write(*sorted(list(reader.get_iterator()),
+                             key=lambda x: x.get_property("tf_idf"),
+                             reverse=True))
     writer.flush()
     writer.close()
 
 
-def processor(name: str, identifier: DocumentIdDictionary, tokenizer: Tokenizer, scheme: QueryScoringScheme):
+def processor(name: str, identifier: DocumentIdDictionary, tokenizer: Tokenizer, query_scheme: QueryScoringScheme):
     postings = PostingDictionary(name)
     identifier.set_name(name)
     encountered = set()
-    posting = scheme.get_posting_type()
+    posting = query_scheme.get_posting_type()
 
     for document in glob.glob(f"{ROOT_DIR}/**/*"):
         token_result = tokenizer.tokenize(document)
@@ -51,7 +68,7 @@ def processor(name: str, identifier: DocumentIdDictionary, tokenizer: Tokenizer,
         token_result.url = normalize_url(token_result.url)
 
         doc_id = identifier.generate_doc_id(document, normalize_url(token_result.url))
-        posts = scheme.create_posting(document, token_result)
+        posts = query_scheme.create_posting(document, token_result)
         for token, post in posts:
             postings.add_posting(token, post)
 
@@ -61,7 +78,7 @@ def processor(name: str, identifier: DocumentIdDictionary, tokenizer: Tokenizer,
     identifier.flush()
     postings.flush()
     identifier.close()
-    merge_files(name, posting, scheme)
+    merge_files(name, posting, query_scheme)
 
 
 def tf_idf_processor(name: str, tokenizer: Tokenizer):
@@ -89,5 +106,7 @@ if __name__ == "__main__":
             pool.starmap(tf_idf_processor, TOKENIZER_LIST)
     elif RUN_CONFIG == 1:
         page_rank("indexes/page_rank")
+    elif RUN_CONFIG == 2:
+        tf_idf_processor("indexes/bold", BoldTokenizer())
     else:
         pass

@@ -9,13 +9,13 @@
     <label for="query" style="display: none">
         Search:
     </label>
-    <input id="query" name="query" type="text" />
-    <input type="submit" value="Search" />
+    <input id="query" name="query" type="text"/>
+    <input type="submit" value="Search"/>
 </form>
 <p>Retrieved in {{ difference }}</p>
 {% if query_result %}
     {% for result in query_results %}
-        <a href="{{ result.url }}">{{ result.url }}</a> - {{ result.score }}
+        <a href="{{ result.url }}">{{ result.url }}</a> - {{ result.score }} <br/>
     {% endfor %}
 {% endif %}
 </body>

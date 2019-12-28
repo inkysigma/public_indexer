@@ -1,5 +1,4 @@
 from posting.io import PostingReader, PostingWriter, merge
-from threading import RLock
 from posting.post import create_posting_type
 
 if __name__ == "__main__":

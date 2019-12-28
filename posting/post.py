@@ -1,9 +1,11 @@
 from typing import List, Dict, Tuple, Any, Type
 
+
 def dirty_string(segment):
     if type(segment) is list:
         return ",".join(segment)
     return str(segment)
+
 
 class Posting:
     SORTED_PROPERTIES: Dict[str, Tuple[type, int]] = None

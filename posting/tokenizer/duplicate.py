@@ -1,3 +1,5 @@
+import re
+
 from lxml import etree
 import hashlib
 from bs4 import BeautifulSoup

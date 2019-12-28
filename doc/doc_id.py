@@ -1,8 +1,7 @@
-from collections import defaultdict
-from typing import Dict
 import csv
-from urllib.parse import urldefrag
 import os
+from typing import Dict
+from urllib.parse import urldefrag
 
 
 def from_document_dictionary(name):
@@ -78,7 +77,7 @@ class DocumentIdDictionary:
         return self.doc_id[file][2]
 
     def find_url_by_id(self, doc_id: int) -> str:
-        return self.doc_id[doc_id][2]
+        return self.reverse_map[doc_id][2]
 
     def __getitem__(self, item):
         if type(item) is int:

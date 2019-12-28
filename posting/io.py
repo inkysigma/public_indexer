@@ -1,10 +1,9 @@
-from itertools import zip_longest
-
-from typing import Optional, Type, IO
-from .post import Posting, IntersectPosting
-from threading import RLock
 from collections import defaultdict
+from threading import RLock
 from typing import Iterator
+from typing import Type, IO
+
+from .post import Posting, IntersectPosting
 
 TOKENS = {'\n', '\t', '\v', '\f'}
 
@@ -44,11 +43,8 @@ class PostingWriter:
 
     def write(self, *postings: Posting):
         partition = "\f"
-        total_count = 0
-        for posting in postings:
-            total_count += 1
-            partition += "\f".join([str(posting) for posting in postings])
-        self.keys[self.curr_key][1] += total_count
+        partition += "\f".join([str(posting) for posting in postings])
+        self.keys[self.curr_key][1] += len(postings)
         self.open.write(partition)
 
     def flush(self):
@@ -63,7 +59,7 @@ class PostingWriter:
 
 
 class PostingIterator:
-    BUFFER_SIZE = 65536
+    BUFFER_SIZE = 16384
 
     def __init__(self, lock: RLock, file: IO, posting: Type[Posting]):
         self.lock = lock
@@ -172,7 +168,7 @@ class PostingReader:
         self.open.close()
 
 
-def intersect(*postings: PostingIterator) -> Iterator[IntersectPosting]:
+def intersect(*postings: PostingIterator, limit=None) -> Iterator[IntersectPosting]:
     if len(postings) == 0:
         return []
 
@@ -185,6 +181,7 @@ def intersect(*postings: PostingIterator) -> Iterator[IntersectPosting]:
         return
 
     running = True
+    counter = 0
     while running:
         maximum = max((head for head in heads if head))
         all_equal = True
@@ -202,12 +199,15 @@ def intersect(*postings: PostingIterator) -> Iterator[IntersectPosting]:
             else:
                 final.append(heads[i])
         if running and all_equal:
+            counter += 1
             yield IntersectPosting(*final)
             try:
                 heads = [next(posting) for posting in postings]
             except StopIteration:
                 return
         final.clear()
+        if limit and counter == limit:
+            return
 
 
 def merge(merged: PostingWriter, *files: PostingReader):

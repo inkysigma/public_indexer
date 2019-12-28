@@ -1,6 +1,5 @@
 import abc
-from typing import Dict, List, Tuple, Optional, Type
-from posting import Posting
+from typing import Dict, List, Optional
 
 
 class Token:

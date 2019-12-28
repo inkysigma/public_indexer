@@ -1,12 +1,13 @@
-from posting.tokenizer import Tokenizer, TokenizeResult, Token
-from doc import DocumentIdDictionary, normalize_url
-from typing import Optional
 import json
-from bs4 import BeautifulSoup
-from bs4.element import SoupStrainer
-from collections import defaultdict
-from nltk.stem import PorterStemmer
 import re
+from collections import defaultdict
+from typing import Optional
+
+from bs4 import BeautifulSoup
+from nltk.stem import PorterStemmer
+
+from doc import DocumentIdDictionary, normalize_url
+from posting.tokenizer import Tokenizer, TokenizeResult, Token
 
 PERMITTED_ENCODINGS = {
     "utf-8", "latin-1", "utf-16", "utf-32", "ascii", "ISO-8859-1".lower(), "UTF-8-SIG".lower(), "EUC-KR".lower(),
